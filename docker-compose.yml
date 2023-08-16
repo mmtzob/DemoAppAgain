@@ -2,7 +2,7 @@ version: '3'
 services:
   app:
     image: eu.gcr.io/halfpipe-io/build-openjdk17-nvm
-    command: ./gradlew build
+    command: ./gradlew distZip
     working_dir: /root/code
     volumes:
       - .:/root/code:delegated

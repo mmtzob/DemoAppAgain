@@ -1,0 +1,264 @@
+# Generated using halfpipe cli version 3.116.0
+jobs:
+- build_log_retention:
+    minimum_succeeded_builds: 1
+  name: update
+  plan:
+  - attempts: 2
+    get: git
+    params:
+      depth: 1
+    timeout: 15m
+    trigger: true
+  - attempts: 2
+    config:
+      image_resource:
+        name: ""
+        source:
+          password: ((halfpipe-gcr.private_key))
+          registry_mirror:
+            host: eu-mirror.gcr.io
+          repository: eu.gcr.io/halfpipe-io/halfpipe-auto-update
+          tag: latest
+          username: _json_key
+        type: registry-image
+      inputs:
+      - name: git
+      params:
+        CONCOURSE_PASSWORD: ((concourse.password))
+        CONCOURSE_TEAM: ((concourse.team))
+        CONCOURSE_URL: ((concourse.url))
+        CONCOURSE_USERNAME: ((concourse.username))
+        HALFPIPE_DOMAIN: halfpipe.io
+        HALFPIPE_FILE_PATH: .halfpipe.io
+        HALFPIPE_PROJECT: halfpipe-io
+        PIPELINE_NAME: demo-app
+      platform: linux
+      run:
+        dir: git
+        path: update-pipeline
+    task: update
+    timeout: 15m
+  - attempts: 2
+    no_get: true
+    params:
+      bump: minor
+    put: version
+    timeout: 15m
+  serial: true
+- build_log_retention:
+    minimum_succeeded_builds: 1
+  name: build
+  on_failure:
+    attempts: 2
+    no_get: true
+    params:
+      folder: artifacts-out-failure
+      postfix: failure
+      version_file: git/.git/ref
+    put: artifacts-on-failure
+    timeout: 15m
+  plan:
+  - attempts: 2
+    in_parallel:
+      fail_fast: true
+      steps:
+      - get: git
+        params:
+          depth: 1
+        passed:
+        - update
+      - get: version
+        passed:
+        - update
+        trigger: true
+    timeout: 15m
+  - config:
+      caches:
+      - path: ../../../var/halfpipe/cache
+      - path: ../../../halfpipe-cache
+      image_resource:
+        name: ""
+        source:
+          password: ((halfpipe-gcr.private_key))
+          registry_mirror:
+            host: eu-mirror.gcr.io
+          repository: eu.gcr.io/halfpipe-io/halfpipe-docker-compose
+          tag: stable
+          username: _json_key
+        type: registry-image
+      inputs:
+      - name: git
+      - name: version
+      outputs:
+      - name: artifacts-out
+      - name: artifacts-out-failure
+      params:
+        ARTIFACTORY_PASSWORD: ((artifactory.password))
+        ARTIFACTORY_URL: ((artifactory.url))
+        ARTIFACTORY_USERNAME: ((artifactory.username))
+        GCR_PRIVATE_KEY: ((halfpipe-gcr.private_key))
+        HALFPIPE_CACHE_TEAM: oscar
+        RUNNING_IN_CI: "true"
+      platform: linux
+      run:
+        args:
+        - -c
+        - |-
+          copyArtifact() {
+            ARTIFACT=$1
+            ARTIFACT_OUT_PATH=$2
+
+            if [ -e $ARTIFACT ] ; then
+              mkdir -p $ARTIFACT_OUT_PATH
+              cp -r $ARTIFACT $ARTIFACT_OUT_PATH
+            else
+              echo "ERROR: Artifact '$ARTIFACT' not found. Try fly hijack to check the filesystem."
+              exit 1
+            fi
+          }
+
+          export GIT_REVISION=`cat .git/ref`
+          export BUILD_VERSION=`cat ../version/version`
+
+          \echo "$GCR_PRIVATE_KEY" | docker login -u _json_key --password-stdin https://eu.gcr.io
+          docker-compose run --use-aliases -e ARTIFACTORY_PASSWORD -e ARTIFACTORY_URL -e ARTIFACTORY_USERNAME -e BUILD_VERSION -e DOCKER_HOST="${DIND_HOST}" -e GIT_REVISION -e HALFPIPE_CACHE_TEAM -e RUNNING_IN_CI -v /var/halfpipe/cache:/var/halfpipe/cache -v /var/halfpipe/shared-cache:/var/halfpipe/shared-cache app
+
+          EXIT_STATUS=$?
+          if [ $EXIT_STATUS != 0 ] ; then
+            # Artifacts to copy in case of failure
+            copyArtifact build/reports ../artifacts-out-failure/build
+            exit 1
+          fi
+
+          # Artifacts to copy from task
+          copyArtifact build/distributions ../artifacts-out/build
+        dir: git
+        path: docker.sh
+    privileged: true
+    task: build
+    timeout: 1h
+  - attempts: 2
+    no_get: true
+    params:
+      folder: artifacts-out
+      version_file: git/.git/ref
+    put: artifacts
+    timeout: 15m
+  serial: true
+- build_log_retention:
+    minimum_succeeded_builds: 1
+  name: deploy
+  plan:
+  - attempts: 2
+    in_parallel:
+      fail_fast: true
+      steps:
+      - get: git
+        params:
+          depth: 1
+        passed:
+        - build
+      - get: version
+        passed:
+        - build
+        trigger: true
+    timeout: 15m
+  - attempts: 2
+    config:
+      image_resource:
+        name: ""
+        source:
+          password: ((halfpipe-gcr.private_key))
+          repository: eu.gcr.io/halfpipe-io/gcp-resource
+          tag: stable
+          username: _json_key
+        type: registry-image
+      inputs:
+      - name: git
+      outputs:
+      - name: artifacts
+      params:
+        BUCKET: ((halfpipe-artifacts.bucket))
+        FOLDER: oscar/demo-app
+        JSON_KEY: ((halfpipe-artifacts.private_key))
+        VERSION_FILE: git/.git/ref
+      platform: linux
+      run:
+        args:
+        - .
+        dir: artifacts
+        path: /opt/resource/download
+    task: get-artifact
+    timeout: 15m
+  - attempts: 2
+    no_get: true
+    params:
+      appPath: artifacts/build/distributions/DemoApp-1.0-SNAPSHOT.zip
+      buildVersionPath: version/version
+      cliVersion: cf7
+      command: halfpipe-all
+      gitRefPath: git/.git/ref
+      manifestPath: git/manifest.yml
+      testDomain: springernature.app
+      timeout: 1h
+    put: halfpipe-all
+    resource: cf-snpaas-oscar-qa
+    timeout: 1h
+  serial: true
+resource_types:
+- check_every: 24h0m0s
+  name: gcp-resource
+  source:
+    password: ((halfpipe-gcr.private_key))
+    repository: eu.gcr.io/halfpipe-io/gcp-resource
+    tag: stable
+    username: _json_key
+  type: registry-image
+- check_every: 24h0m0s
+  name: cf-resource
+  source:
+    password: ((halfpipe-gcr.private_key))
+    repository: eu.gcr.io/halfpipe-io/cf-resource-v2
+    username: _json_key
+  type: registry-image
+resources:
+- check_every: 10m0s
+  name: git
+  source:
+    branch: main
+    private_key: ((halfpipe-github.private_key))
+    uri: git@github.com:springernature/DemoApp.git
+  type: git
+- check_every: 24h0m0s
+  name: artifacts
+  source:
+    bucket: ((halfpipe-artifacts.bucket))
+    folder: oscar/demo-app
+    json_key: ((halfpipe-artifacts.private_key))
+  type: gcp-resource
+- check_every: 24h0m0s
+  name: artifacts-on-failure
+  source:
+    bucket: ((halfpipe-artifacts.bucket))
+    folder: oscar/demo-app
+    json_key: ((halfpipe-artifacts.private_key))
+  type: gcp-resource
+- check_every: 24h0m0s
+  name: version
+  source:
+    bucket: ((halfpipe-semver.bucket))
+    driver: gcs
+    json_key: ((halfpipe-semver.private_key))
+    key: oscar-demo-app
+  type: semver
+- check_every: 24h0m0s
+  name: cf-snpaas-oscar-qa
+  source:
+    api: ((cloudfoundry.api-snpaas))
+    org: ((cloudfoundry.org-snpaas))
+    password: ((cloudfoundry.password-snpaas))
+    space: oscar-qa
+    username: ((cloudfoundry.username-snpaas))
+  type: cf-resource
+
