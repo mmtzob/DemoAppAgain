@@ -1,0 +1,10 @@
+version: '3'
+services:
+  app:
+    image: eu.gcr.io/halfpipe-io/build-openjdk17-nvm
+    command: ./gradlew build
+    working_dir: /root/code
+    volumes:
+      - .:/root/code:delegated
+      - $HOME/.gradle:/root/.gradle:delegated
+      - /var/run/docker.sock:/var/run/docker.sock

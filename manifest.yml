@@ -1,0 +1,12 @@
+applications:
+  - name: DemoApp
+    buildpacks:
+      - https://github.com/cloudfoundry/java-buildpack.git#v4.48.3
+    instances: 2
+    memory: 1G
+    stack: cflinuxfs3
+    routes:
+      - route: demo-app.springernature.app
+    env:
+      JBP_CONFIG_OPEN_JDK_JRE: '{ jre: { version: 11.+ }}'
+      JAVA_OPTS: -Xmx384m -Xms384m -Xss256k -XX:MaxMetaspaceSize=96m -XX:+UseG1GC -XX:MaxGCPauseMillis=250
