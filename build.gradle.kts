@@ -30,7 +30,7 @@ tasks.withType<KotlinCompile> {
 }
 
 application {
-    mainClass.set("ApplicationKt")
+    mainClass.set("com.springernature.demoapp.ApplicationKt")
 }
 
 val fatJar = task("fatJar", type = Jar::class) {
