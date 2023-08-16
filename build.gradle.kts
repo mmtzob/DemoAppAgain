@@ -33,6 +33,20 @@ application {
     mainClass.set("com.springernature.demoapp.ApplicationKt")
 }
 
+tasks.jar {
+    manifest {
+        attributes(
+            mapOf(
+                "Implementation-Title" to project.name,
+                "Implementation-Version" to project.version,
+                "Main-Class" to application.mainClass
+            )
+        )
+    }
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
+}
+
 val fatJar = task("fatJar", type = Jar::class) {
     manifest {
         attributes(
