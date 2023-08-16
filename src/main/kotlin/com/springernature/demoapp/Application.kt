@@ -1,9 +1,30 @@
 package com.springernature.demoapp
 
-fun main(args: Array<String>) {
-    println("Hello World!")
+import org.http4k.core.HttpHandler
+import org.http4k.core.Method
+import org.http4k.core.Response
+import org.http4k.core.Status.Companion.OK
+import org.http4k.routing.bind
+import org.http4k.routing.path
+import org.http4k.routing.routes
+import org.http4k.server.Jetty
+import org.http4k.server.asServer
 
-    // Try adding program arguments via Run/Debug configuration.
-    // Learn more about running applications: https://www.jetbrains.com/help/idea/running-applications.html.
-    println("Program arguments: ${args.joinToString()}")
+fun application(): HttpHandler {
+
+    return routes(
+        "/" bind Method.GET to {
+            Response(OK).body("Welcome, thanks for feeding me! :)")
+        },
+        "/eat/{food}" bind Method.GET to {
+            Response(OK).body("Yum, thanks for the ${it.path("food") ?: "un-named snack!"}")
+        },
+        "/internal/status" bind Method.GET to {
+            Response(OK).body("health check")
+        }
+    )
+}
+
+fun main() {
+    application().asServer(Jetty(8080)).start().block()
 }
