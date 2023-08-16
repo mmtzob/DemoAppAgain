@@ -1,0 +1,6 @@
+.gradle/
+.idea
+.idea/*
+.idea/codeStyles
+.idea/inspectionProfiles
+build/
