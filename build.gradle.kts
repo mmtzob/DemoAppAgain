@@ -6,7 +6,7 @@ plugins {
     application
 }
 
-group = "org.example"
+group = "com.springernature.demoapp"
 version = "1.0-SNAPSHOT"
 
 repositories {
@@ -59,7 +59,7 @@ val fatJar = task("fatJar", type = Jar::class) {
     }
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
     from(configurations.runtimeClasspath.get().map { if (it.isDirectory) it else zipTree(it) })
-    with(tasks["jar"] as CopySpec)
+//    with(tasks["jar"] as CopySpec)
 }
 
 tasks {
