@@ -29,15 +29,15 @@ class ApplicationTest {
     fun `app responds`() {
         assertEquals(
             Status.OK,
-            client(Request(Method.GET, "http://localhost:${server.port()}/eat/pizza")).status
+            client(Request(Method.GET, "http://localhost:${server.port()}/greeting/japan")).status
         )
     }
 
     @Test
     fun `app responds by eating path value`() {
         assertEquals(
-            "Yum, thanks for the pie",
-            client(Request(Method.GET, "http://localhost:${server.port()}/eat/pie")).body.toString()
+            "Greetings from austria",
+            client(Request(Method.GET, "http://localhost:${server.port()}/greeting/austria")).body.toString()
         )
     }
 }
