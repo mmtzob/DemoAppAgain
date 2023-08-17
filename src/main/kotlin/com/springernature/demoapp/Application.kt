@@ -14,7 +14,7 @@ fun application(): HttpHandler {
 
     return routes(
         "/" bind Method.GET to {
-            Response(OK).body("Welcome, thanks for feeding me! :)")
+            Response(OK).body("Hello World :)")
         },
         "/eat/{food}" bind Method.GET to {
             Response(OK).body("Yum, thanks for the ${it.path("food") ?: "un-named snack!"}")
