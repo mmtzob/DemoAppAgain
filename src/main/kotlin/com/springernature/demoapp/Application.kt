@@ -16,8 +16,8 @@ fun application(): HttpHandler {
         "/" bind Method.GET to {
             Response(OK).body("Hello World :)")
         },
-        "/eat/{food}" bind Method.GET to {
-            Response(OK).body("Yum, thanks for the ${it.path("food") ?: "un-named snack!"}")
+        "/greeting/{country}" bind Method.GET to {
+            Response(OK).body("Greetings from ${it.path("country") ?: "un-named country!"}")
         },
         "/internal/status" bind Method.GET to {
             Response(OK).body("health check")
